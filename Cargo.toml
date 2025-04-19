@@ -1,0 +1,23 @@
+[package]
+name = "devlg"
+version = "0.1.0"
+edition = "2024"
+authors = ["chengzhycn <chengzhycn@gmail.com>"]
+description = "A command-line SSH session manager"
+license = "MIT"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+dirs = "5.0"
+thiserror = "1.0"
+dialoguer = "0.11"
+rpassword = "7.3"
+ssh2 = "0.9"
+anyhow = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+
+[dev-dependencies]
+tempfile = "3.8"
+assert_fs = "1.1"
