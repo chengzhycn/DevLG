@@ -17,6 +17,8 @@ rpassword = "7.3"
 ssh2 = "0.9"
 anyhow = "1.0"
 tokio = { version = "1.0", features = ["full"] }
+termios = "0.3"
+ctrlc = "3.4"
 
 [dev-dependencies]
 tempfile = "3.8"

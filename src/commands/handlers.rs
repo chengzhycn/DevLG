@@ -1,13 +1,13 @@
 use crate::commands::Commands;
 use crate::config::manager::Config;
 use crate::models::session::{AuthType, Session};
-use crate::utils::ssh;
-use anyhow::{Context, Result};
+use crate::utils::ssh::{Ssh2Connector, SshConnector, SystemSshConnector};
+use anyhow::Context;
 use dialoguer::{Input, Select};
 use rpassword::read_password;
 use std::path::PathBuf;
 
-pub async fn handle_command(command: Commands) -> Result<()> {
+pub async fn handle_command(command: Commands) -> anyhow::Result<()> {
     match command {
         Commands::List { detailed } => handle_list(detailed),
         Commands::Add {
@@ -29,11 +29,14 @@ pub async fn handle_command(command: Commands) -> Result<()> {
             key_path,
             password,
         } => handle_modify(name, host, user, port, auth_type, key_path, password).await,
-        Commands::Login { name } => handle_login(name).await,
+        Commands::Login {
+            name,
+            use_system_ssh,
+        } => handle_login(name, use_system_ssh).await,
     }
 }
 
-fn handle_list(detailed: bool) -> Result<()> {
+fn handle_list(detailed: bool) -> anyhow::Result<()> {
     let config = Config::load()?;
     if config.sessions.is_empty() {
         println!("No SSH sessions found.");
@@ -88,7 +91,7 @@ async fn handle_add(
     auth_type: Option<String>,
     key_path: Option<PathBuf>,
     password: Option<String>,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     let mut config = Config::load()?;
 
     let session = if name.is_some() && host.is_some() && user.is_some() {
@@ -160,7 +163,7 @@ async fn handle_add(
     Ok(())
 }
 
-fn handle_delete(name: String) -> Result<()> {
+fn handle_delete(name: String) -> anyhow::Result<()> {
     let mut config = Config::load()?;
     config.remove_session(&name)?;
     println!("Session '{}' deleted successfully.", name);
@@ -175,7 +178,7 @@ async fn handle_modify(
     auth_type: Option<String>,
     key_path: Option<PathBuf>,
     password: Option<String>,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     let mut config = Config::load()?;
     let session = config
         .get_session(&name)
@@ -279,7 +282,7 @@ async fn handle_modify(
     Ok(())
 }
 
-async fn handle_login(name: Option<String>) -> Result<()> {
+async fn handle_login(name: Option<String>, use_system_ssh: bool) -> anyhow::Result<()> {
     let config = Config::load()?;
 
     let session = match name {
@@ -308,6 +311,14 @@ async fn handle_login(name: Option<String>) -> Result<()> {
         }
     };
 
-    // Use the SSH utility module to connect
-    ssh::connect_ssh(&session)
+    // Choose the appropriate SSH connector based on the flag
+    if use_system_ssh {
+        println!("Using system SSH client...");
+        let connector = SystemSshConnector;
+        connector.connect(&session)
+    } else {
+        println!("Using ssh2 crate...");
+        let connector = Ssh2Connector;
+        connector.connect(&session)
+    }
 }

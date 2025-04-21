@@ -9,12 +9,13 @@ DevLG is a command-line SSH session manager written in Rust. It helps you manage
 - Support for both password and private key authentication
 - Configuration stored in TOML format
 - Interactive session selection for quick login
+- Multiple SSH connection implementations (system SSH client and ssh2 crate)
 - Secure credential storage
 
 ## Prerequisites
 
 - Rust 1.70 or later
-- OpenSSH client
+- OpenSSH client (for system SSH client option)
 - A Unix-like operating system (Linux, macOS, etc.)
 
 ## Installation
@@ -42,11 +43,14 @@ devlg add
 # Add a new SSH session from command line
 devlg add --name myserver --host example.com --user username
 
-# Login to a specific session
+# Login to a specific session (using ssh2 crate by default)
 devlg login myserver
 
 # Login with interactive session selection
 devlg login
+
+# Login using system SSH client
+devlg login myserver --use-system-ssh
 
 # Delete a session
 devlg delete myserver
@@ -77,6 +81,24 @@ auth_type = "password"
 password = "your-password"
 ```
 
+## SSH Connection Implementations
+
+DevLG provides two different SSH connection implementations:
+
+1. **Ssh2Connector (Default)**: Uses the ssh2 crate for SSH connections
+
+   - Pure Rust implementation
+   - No dependency on system SSH client
+   - Better error handling
+   - More control over the connection
+
+2. **SystemSshConnector**: Uses the system's SSH client
+   - Relies on OpenSSH client
+   - Uses sshpass for password authentication
+   - More compatible with existing SSH configurations
+
+You can choose which implementation to use with the `--use-system-ssh` flag when logging in.
+
 ## Development Roadmap
 
 ### Phase 1: Core Functionality
@@ -94,12 +116,13 @@ password = "your-password"
 - [x] Password authentication support
 - [x] Private key authentication support
 - [ ] Secure credential storage (encryption)
-- [ ] SSH connection implementation
-  - [ ] Basic connection using ssh2 crate
-  - [ ] Password authentication
-  - [ ] Private key authentication
-  - [ ] Connection error handling
-  - [ ] Interactive shell support
+- [x] SSH connection implementation
+  - [x] Basic connection using ssh2 crate
+  - [x] Password authentication
+  - [x] Private key authentication
+  - [x] Connection error handling
+  - [x] Interactive shell support
+  - [x] System SSH client fallback
 
 ### Phase 3: User Experience
 

@@ -90,5 +90,9 @@ pub enum Commands {
     Login {
         /// Session name to login to
         name: Option<String>,
+
+        /// Use system SSH client instead of ssh2 crate
+        #[arg(short, long)]
+        use_system_ssh: bool,
     },
 }
