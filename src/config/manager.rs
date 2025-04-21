@@ -105,6 +105,7 @@ mod tests {
             crate::models::session::AuthType::Key,
             Some(PathBuf::from("~/.ssh/id_rsa")),
             None,
+            Some(vec!["production".to_string(), "web".to_string()]),
         );
         config.add_session(session.clone())?;
         assert_eq!(config.sessions.len(), 1);
@@ -119,6 +120,7 @@ mod tests {
         // Test getting session
         let found_session = config.get_session("test").unwrap();
         assert_eq!(found_session.name, "test");
+        assert_eq!(found_session.tags, vec!["production", "web"]);
 
         // Test removing session
         config.remove_session("test")?;

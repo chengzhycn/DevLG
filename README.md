@@ -10,6 +10,7 @@ DevLG is a command-line SSH session manager written in Rust. It helps you manage
 - Configuration stored in TOML format
 - Interactive session selection for quick login
 - Secure credential storage
+- Tag-based session organization and filtering
 
 ## Prerequisites
 
@@ -36,11 +37,17 @@ cargo install --path .
 # List all SSH sessions
 devlg list
 
+# List sessions with detailed information
+devlg list --detailed
+
+# List sessions filtered by tags
+devlg list --tags "production,web"
+
 # Add a new SSH session interactively
 devlg add
 
 # Add a new SSH session from command line
-devlg add --name myserver --host example.com --user username
+devlg add --name myserver --host example.com --user username --tags "production,web"
 
 # Login to a specific session
 devlg login myserver
@@ -53,6 +60,11 @@ devlg delete myserver
 
 # Modify a session
 devlg modify myserver
+
+# Manage session tags
+devlg tag myserver --action add --tags "production,web"
+devlg tag myserver --action remove --tags "web"
+devlg tag myserver --action list
 ```
 
 ### Configuration
@@ -67,6 +79,7 @@ user = "username"
 port = 22
 auth_type = "key"
 private_key_path = "~/.ssh/id_rsa"
+tags = ["production", "web"]
 
 [[sessions]]
 name = "password-server"
@@ -75,7 +88,41 @@ user = "admin"
 port = 22
 auth_type = "password"
 password = "your-password"
+tags = ["staging", "database"]
 ```
+
+## Tag Management
+
+DevLG supports tagging SSH sessions for better organization and filtering:
+
+1. **Adding Tags**: When creating or modifying a session, you can specify tags using the `--tags` option with comma or semicolon-separated values.
+
+   ```bash
+   devlg add --name myserver --host example.com --tags "production,web"
+   ```
+
+2. **Managing Tags**: Use the `tag` command to add, remove, or list tags for a session.
+
+   ```bash
+   # Add tags
+   devlg tag myserver --action add --tags "production,web"
+
+   # Remove tags
+   devlg tag myserver --action remove --tags "web"
+
+   # List tags
+   devlg tag myserver --action list
+   ```
+
+3. **Filtering by Tags**: When listing sessions, you can filter by tags using the `--tags` option.
+
+   ```bash
+   # Show only production servers
+   devlg list --tags "production"
+
+   # Show servers with either production or web tags
+   devlg list --tags "production,web"
+   ```
 
 ## Development Roadmap
 
@@ -103,7 +150,8 @@ password = "your-password"
 
 ### Phase 3: User Experience
 
-- [ ] Session grouping/categorization
+- [x] Session grouping/categorization with tags
+- [x] Session filtering by tags
 - [ ] Session search functionality
 - [ ] Session import/export
 - [ ] Session templates

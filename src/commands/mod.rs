@@ -17,6 +17,10 @@ pub enum Commands {
         /// Show detailed information about each session
         #[arg(short, long)]
         detailed: bool,
+
+        /// Filter sessions by tags (comma or semicolon separated)
+        #[arg(short, long)]
+        tags: Option<String>,
     },
 
     /// Add a new SSH session
@@ -48,6 +52,10 @@ pub enum Commands {
         /// Password for authentication
         #[arg(short = 'P', long)]
         password: Option<String>,
+
+        /// Tags for the session (comma or semicolon separated)
+        #[arg(short, long)]
+        tags: Option<String>,
     },
 
     /// Delete an SSH session
@@ -84,11 +92,33 @@ pub enum Commands {
         /// New password for authentication
         #[arg(short = 'P', long)]
         password: Option<String>,
+
+        /// New tags for the session (comma or semicolon separated)
+        #[arg(short, long)]
+        tags: Option<String>,
     },
 
     /// Login to an SSH session
     Login {
         /// Session name to login to
         name: Option<String>,
+
+        /// Filter sessions by tags (comma or semicolon separated)
+        #[arg(short, long)]
+        tags: Option<String>,
+    },
+
+    /// Manage tags for SSH sessions
+    Tag {
+        /// Session name
+        name: String,
+
+        /// Action to perform (add, remove, list)
+        #[arg(short, long)]
+        action: String,
+
+        /// Tags to add or remove (comma or semicolon separated)
+        #[arg(short, long)]
+        tags: Option<String>,
     },
 }
