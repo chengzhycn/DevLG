@@ -1,6 +1,11 @@
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{
+    collections::HashSet,
+    fmt::{self, Display},
+    path::PathBuf,
+    str::FromStr,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Session {
@@ -14,15 +19,42 @@ pub struct Session {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
     #[serde(default)]
-    pub tags: Vec<String>,
+    pub tags: HashSet<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum AuthType {
     #[serde(rename = "key")]
     Key,
     #[serde(rename = "password")]
     Password,
+}
+
+impl FromStr for AuthType {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "key" => AuthType::Key,
+            "password" => AuthType::Password,
+            _ => bail!("Invalid auth type: {}", s),
+        })
+    }
+}
+
+impl From<AuthType> for String {
+    fn from(auth_type: AuthType) -> Self {
+        match auth_type {
+            AuthType::Key => "key".to_string(),
+            AuthType::Password => "password".to_string(),
+        }
+    }
+}
+
+impl Display for AuthType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", Into::<String>::into(*self))
+    }
 }
 
 #[derive(Default)]
@@ -34,7 +66,7 @@ pub struct SessionBuilder {
     auth_type: Option<AuthType>,
     private_key_path: Option<PathBuf>,
     password: Option<String>,
-    tags: Option<Vec<String>>,
+    tags: Option<HashSet<String>>,
 }
 
 impl SessionBuilder {
@@ -77,7 +109,7 @@ impl SessionBuilder {
         self
     }
 
-    pub fn tags(mut self, tags: Option<Vec<String>>) -> Self {
+    pub fn tags(mut self, tags: Option<HashSet<String>>) -> Self {
         self.tags = tags;
         self
     }
@@ -117,7 +149,7 @@ impl Session {
         auth_type: AuthType,
         private_key_path: Option<PathBuf>,
         password: Option<String>,
-        tags: Option<Vec<String>>,
+        tags: Option<HashSet<String>>,
     ) -> Self {
         SessionBuilder::new()
             .name(name)
@@ -177,7 +209,10 @@ mod tests {
             .auth_type(AuthType::Key)
             .private_key_path(Some(PathBuf::from("~/.ssh/id_rsa")))
             .password(None)
-            .tags(Some(vec!["production".to_string(), "web".to_string()]))
+            .tags(Some(HashSet::from([
+                "production".to_string(),
+                "web".to_string(),
+            ])))
             .build()
             .unwrap();
         assert!(valid_session.validate().is_ok());
