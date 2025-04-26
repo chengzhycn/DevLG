@@ -34,7 +34,7 @@ pub enum Commands {
         host: Option<String>,
 
         /// Username
-        #[arg(short, long)]
+        #[arg(short, long, default_value = "root")]
         user: Option<String>,
 
         /// SSH port
@@ -42,7 +42,7 @@ pub enum Commands {
         port: Option<u16>,
 
         /// Authentication type (key or password)
-        #[arg(short, long)]
+        #[arg(short, long, default_value = "key")]
         auth_type: Option<String>,
 
         /// Path to private key file

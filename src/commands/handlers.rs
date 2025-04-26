@@ -9,7 +9,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 // Helper function to parse tags from a string
-fn parse_tags(tags_str: Option<&String>) -> Vec<String> {
+fn parse_tags(tags_str: Option<&String>) -> HashSet<String> {
     tags_str
         .map(|s| {
             s.split([',', ';'])
@@ -189,7 +189,7 @@ fn handle_list(detailed: bool, tags_filter: Option<String>) -> Result<()> {
 
     // Filter sessions by tags if specified
     let filtered_sessions: Vec<&Session> = if let Some(tags_str) = tags_filter {
-        let filter_tags: HashSet<String> = parse_tags(Some(&tags_str)).into_iter().collect();
+        let filter_tags: HashSet<String> = parse_tags(Some(&tags_str));
         config
             .sessions
             .iter()
@@ -216,10 +216,7 @@ fn handle_list(detailed: bool, tags_filter: Option<String>) -> Result<()> {
         println!("{:-<105}", "");
 
         for session in filtered_sessions.iter() {
-            let auth_type = match session.auth_type {
-                AuthType::Key => "Key",
-                AuthType::Password => "Password",
-            };
+            let auth_type = session.auth_type.to_string();
 
             let key_path = session
                 .private_key_path
@@ -230,7 +227,12 @@ fn handle_list(detailed: bool, tags_filter: Option<String>) -> Result<()> {
             let tags_str = if session.tags.is_empty() {
                 "N/A".to_string()
             } else {
-                session.tags.join(", ")
+                session
+                    .tags
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<String>>()
+                    .join(", ")
             };
 
             println!(
@@ -249,7 +251,15 @@ fn handle_list(detailed: bool, tags_filter: Option<String>) -> Result<()> {
             let tags_str = if session.tags.is_empty() {
                 "".to_string()
             } else {
-                format!(" [{}]", session.tags.join(", "))
+                format!(
+                    " [{}]",
+                    session
+                        .tags
+                        .iter()
+                        .cloned()
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
             };
 
             println!(
@@ -271,21 +281,14 @@ async fn handle_add(addition: SessionAddition) -> Result<()> {
 
     let session = if addition.name.is_some() && addition.host.is_some() && addition.user.is_some() {
         // Command line mode
-        let auth_type = match addition
-            .auth_type
-            .unwrap_or_else(|| "key".to_string())
-            .as_str()
-        {
-            "key" => AuthType::Key,
-            "password" => AuthType::Password,
-            _ => anyhow::bail!("Invalid authentication type. Use 'key' or 'password'"),
-        };
+        // auth_type has a default value of "key", so it can safely be unwrapped
+        let auth_type = addition.auth_type.unwrap().parse()?;
 
         Session::new(
             addition.name.unwrap(),
             addition.host.unwrap(),
             addition.user.unwrap(),
-            addition.port.unwrap_or(22),
+            addition.port.unwrap(),
             auth_type,
             addition.key_path,
             addition.password,
@@ -297,14 +300,17 @@ async fn handle_add(addition: SessionAddition) -> Result<()> {
 
         let host: String = Input::new().with_prompt("Host").interact_text()?;
 
-        let user: String = Input::new().with_prompt("Username").interact_text()?;
+        let user: String = Input::new()
+            .with_prompt("Username")
+            .default("root".to_string())
+            .interact_text()?;
 
         let port: u16 = Input::new()
             .with_prompt("Port")
             .default(22)
             .interact_text()?;
 
-        let auth_types = vec!["key", "password"];
+        let auth_types = vec![AuthType::Key, AuthType::Password];
         let auth_type_idx = Select::new()
             .with_prompt("Authentication type")
             .items(&auth_types)
@@ -312,18 +318,17 @@ async fn handle_add(addition: SessionAddition) -> Result<()> {
             .interact()?;
 
         let (auth_type, private_key_path, password) = match auth_types[auth_type_idx] {
-            "key" => {
+            AuthType::Key => {
                 let key_path: String = Input::new()
                     .with_prompt("Private key path")
                     .default("~/.ssh/id_rsa".to_string())
                     .interact_text()?;
                 (AuthType::Key, Some(PathBuf::from(key_path)), None)
             }
-            "password" => {
+            AuthType::Password => {
                 let password = read_password().context("Failed to read password")?;
                 (AuthType::Password, None, Some(password))
             }
-            _ => unreachable!(),
         };
 
         let tags_input: String = Input::new()
@@ -378,21 +383,8 @@ async fn handle_modify(name: String, modification: SessionModification) -> Resul
         || modification.tags.is_some()
     {
         // Command line mode
-        let auth_type = match modification
-            .auth_type
-            .unwrap_or_else(|| {
-                match session.auth_type {
-                    AuthType::Key => "key",
-                    AuthType::Password => "password",
-                }
-                .to_string()
-            })
-            .as_str()
-        {
-            "key" => AuthType::Key,
-            "password" => AuthType::Password,
-            _ => anyhow::bail!("Invalid authentication type. Use 'key' or 'password'"),
-        };
+        // auth_type has a default value of "key", so it can safely be unwrapped
+        let auth_type = modification.auth_type.unwrap().parse()?;
 
         Session::new(
             session.name,
@@ -425,7 +417,7 @@ async fn handle_modify(name: String, modification: SessionModification) -> Resul
             .default(session.port)
             .interact_text()?;
 
-        let auth_types = vec!["key", "password"];
+        let auth_types = vec![AuthType::Key, AuthType::Password];
         let auth_type_idx = Select::new()
             .with_prompt("Authentication type")
             .items(&auth_types)
@@ -436,7 +428,7 @@ async fn handle_modify(name: String, modification: SessionModification) -> Resul
             .interact()?;
 
         let (auth_type, private_key_path, password) = match auth_types[auth_type_idx] {
-            "key" => {
+            AuthType::Key => {
                 let key_path: String = Input::new()
                     .with_prompt("Private key path")
                     .default(
@@ -449,16 +441,22 @@ async fn handle_modify(name: String, modification: SessionModification) -> Resul
                     .interact_text()?;
                 (AuthType::Key, Some(PathBuf::from(key_path)), None)
             }
-            "password" => {
+            AuthType::Password => {
                 let password = read_password().context("Failed to read password")?;
                 (AuthType::Password, None, Some(password))
             }
-            _ => unreachable!(),
         };
 
         let tags_input: String = Input::new()
             .with_prompt("Tags (comma or semicolon separated)")
-            .default(session.tags.join(", "))
+            .default(
+                session
+                    .tags
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            )
             .allow_empty(true)
             .interact_text()?;
 
@@ -525,7 +523,10 @@ async fn handle_login(name: Option<String>, tags: Option<String>) -> Result<()> 
                     let tags_str = if s.tags.is_empty() {
                         "".to_string()
                     } else {
-                        format!(" [{}]", s.tags.join(", "))
+                        format!(
+                            " [{}]",
+                            s.tags.iter().cloned().collect::<Vec<String>>().join(", ")
+                        )
                     };
                     format!("{} ({}@{}:{}){}", s.name, s.user, s.host, s.port, tags_str)
                 })

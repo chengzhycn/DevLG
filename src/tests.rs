@@ -2,6 +2,7 @@
 mod session_tests {
     use crate::config::manager::Config;
     use crate::models::session::{AuthType, Session};
+    use std::collections::HashSet;
     use std::path::PathBuf;
     use tempfile::tempdir;
 
@@ -23,7 +24,7 @@ mod session_tests {
             AuthType::Key,
             Some(PathBuf::from("~/.ssh/id_rsa")),
             None,
-            Some(vec!["production".to_string(), "web".to_string()]),
+            Some(HashSet::from(["production".to_string(), "web".to_string()])),
         );
         assert!(config.add_session(session.clone()).is_ok());
         assert_eq!(config.sessions.len(), 1);
@@ -52,7 +53,7 @@ mod session_tests {
             AuthType::Password,
             None,
             Some("password123".to_string()),
-            Some(vec!["staging".to_string()]),
+            Some(HashSet::from(["staging".to_string()])),
         );
         assert!(config.update_session(modified_session).is_ok());
 
