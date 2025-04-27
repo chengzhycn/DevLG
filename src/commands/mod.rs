@@ -56,6 +56,10 @@ pub enum Commands {
         /// Tags for the session (comma or semicolon separated)
         #[arg(short, long)]
         tags: Option<String>,
+
+        /// Template name to use as base
+        #[arg(short = 'T', long)]
+        template: Option<String>,
     },
 
     /// Delete an SSH session
@@ -120,5 +124,33 @@ pub enum Commands {
         /// Tags to add or remove (comma or semicolon separated)
         #[arg(short, long)]
         tags: Option<String>,
+    },
+
+    /// Manage SSH session templates
+    Template {
+        #[command(subcommand)]
+        action: TemplateAction,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum TemplateAction {
+    /// List all templates
+    List,
+
+    /// Delete a template
+    Delete {
+        /// Template name to delete
+        name: String,
+    },
+
+    /// Create a template from an existing session
+    Create {
+        /// Template name
+        name: String,
+
+        /// Session name to use as template
+        #[arg(short, long)]
+        session: String,
     },
 }

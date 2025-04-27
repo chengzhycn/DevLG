@@ -1,4 +1,4 @@
-use crate::models::session::Session;
+use crate::models::session::{Session, Template};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -7,12 +7,14 @@ use std::path::PathBuf;
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Config {
     pub sessions: Vec<Session>,
+    pub templates: Vec<Template>,
 }
 
 impl Config {
     pub fn new() -> Self {
         Config {
             sessions: Vec::new(),
+            templates: Vec::new(),
         }
     }
 
@@ -74,6 +76,38 @@ impl Config {
         } else {
             anyhow::bail!("Session '{}' not found", session.name)
         }
+    }
+
+    pub fn add_template(&mut self, template: Template) -> Result<()> {
+        if self.templates.iter().any(|t| t.name == template.name) {
+            anyhow::bail!("Template with name '{}' already exists", template.name);
+        }
+
+        if self.get_session(&template.session).is_none() {
+            anyhow::bail!("Session '{}' not found", template.session);
+        }
+
+        self.templates.push(template);
+        self.save()
+    }
+
+    pub fn remove_template(&mut self, name: &str) -> Result<()> {
+        let initial_len = self.templates.len();
+        self.templates.retain(|t| t.name != name);
+        if self.templates.len() == initial_len {
+            anyhow::bail!("Template '{}' not found", name);
+        }
+        self.save()
+    }
+
+    #[allow(dead_code)]
+    pub fn get_template(&self, name: &str) -> Option<&Template> {
+        self.templates.iter().find(|t| t.name == name)
+    }
+
+    #[allow(dead_code)]
+    pub fn list_templates(&self) -> &[Template] {
+        &self.templates
     }
 
     fn get_config_path() -> Result<PathBuf> {

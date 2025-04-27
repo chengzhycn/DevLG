@@ -11,6 +11,7 @@ DevLG is a command-line SSH session manager written in Rust. It helps you manage
 - Interactive session selection for quick login
 - Secure credential storage
 - Tag-based session organization and filtering
+- Session templates for quick session creation
 
 ## Prerequisites
 
@@ -49,6 +50,9 @@ devlg add
 # Add a new SSH session from command line
 devlg add --name myserver --host example.com --user username --tags "production,web"
 
+# Add a new SSH session using a template
+devlg add --template mytemplate
+
 # Login to a specific session
 devlg login myserver
 
@@ -66,6 +70,37 @@ devlg tag myserver --action add --tags "production,web"
 devlg tag myserver --action remove --tags "web"
 devlg tag myserver --action list
 ```
+
+### Template Management
+
+DevLG supports session templates to quickly create new sessions with predefined settings:
+
+1. **List Templates**: View all available templates.
+
+   ```bash
+   devlg template list
+   ```
+
+2. **Create a Template**: Create a new template from an existing session.
+
+   ```bash
+   devlg template create --session myserver mytemplate
+   ```
+
+3. **Delete a Template**: Remove an existing template.
+
+   ```bash
+   devlg template delete mytemplate
+   ```
+
+4. **Using Templates**: When adding a new session, you can use a template as a base.
+
+   ```bash
+   # Use a template with command line
+   devlg add --template mytemplate
+   ```
+
+   When using a template, the new session will inherit all properties from the template's source session, but you can override any of them in the interactive mode. The session name will be prompted with the template's source session name as the default value.
 
 ### Configuration
 
@@ -89,6 +124,15 @@ port = 22
 auth_type = "password"
 password = "your-password"
 tags = ["staging", "database"]
+
+[[templates]]
+name = "production-template"
+host = "prod.example.com"
+user = "deploy"
+port = 22
+auth_type = "key"
+private_key_path = "~/.ssh/deploy_key"
+tags = ["production"]
 ```
 
 ## Tag Management
@@ -154,7 +198,7 @@ DevLG supports tagging SSH sessions for better organization and filtering:
 - [x] Session filtering by tags
 - [ ] Session search functionality
 - [ ] Session import/export
-- [ ] Session templates
+- [x] Session templates
 - [ ] Command completion
 - [ ] Progress indicators for long operations
 

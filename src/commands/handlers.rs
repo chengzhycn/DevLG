@@ -1,12 +1,14 @@
 use crate::commands::Commands;
 use crate::config::manager::Config;
-use crate::models::session::{AuthType, Session};
+use crate::models::session::{AuthType, Session, Template};
 use crate::utils::ssh;
 use anyhow::{Context, Result};
 use dialoguer::{Input, Select};
 use rpassword::read_password;
 use std::collections::HashSet;
 use std::path::PathBuf;
+
+use super::TemplateAction;
 
 // Helper function to parse tags from a string
 fn parse_tags(tags_str: Option<&String>) -> HashSet<String> {
@@ -142,17 +144,22 @@ pub async fn handle_command(command: Commands) -> Result<()> {
             key_path,
             password,
             tags,
+            template,
         } => {
-            let addition = SessionAddition::new()
-                .with_name(name)
-                .with_host(host)
-                .with_user(user)
-                .with_port(port)
-                .with_auth_type(auth_type)
-                .with_key_path(key_path)
-                .with_password(password)
-                .with_tags(tags);
-            handle_add(addition).await
+            if template.is_none() {
+                let addition = SessionAddition::new()
+                    .with_name(name)
+                    .with_host(host)
+                    .with_user(user)
+                    .with_port(port)
+                    .with_auth_type(auth_type)
+                    .with_key_path(key_path)
+                    .with_password(password)
+                    .with_tags(tags);
+                handle_add(addition).await
+            } else {
+                handle_add_with_template(template.unwrap()).await
+            }
         }
         Commands::Delete { name } => handle_delete(name),
         Commands::Modify {
@@ -177,6 +184,11 @@ pub async fn handle_command(command: Commands) -> Result<()> {
         }
         Commands::Login { name, tags } => handle_login(name, tags).await,
         Commands::Tag { name, action, tags } => handle_tag(name, action, tags),
+        Commands::Template { action } => match action {
+            TemplateAction::List => handle_template_list().await,
+            TemplateAction::Create { session, name } => handle_template_add(name, session).await,
+            TemplateAction::Delete { name } => handle_template_delete(name).await,
+        },
     }
 }
 
@@ -356,6 +368,106 @@ async fn handle_add(addition: SessionAddition) -> Result<()> {
 
     session.validate()?;
     config.add_session(session)?;
+    println!("Session added successfully.");
+    Ok(())
+}
+
+async fn handle_add_with_template(name: String) -> Result<()> {
+    let mut config = Config::load()?;
+    let template = config.get_template(&name).context("Template not found")?;
+    let session = config
+        .get_session(&template.session)
+        .context("Session not found")?;
+
+    // enter interactive mode
+    let name: String = Input::new()
+        .with_prompt("Session name")
+        .default(session.name.clone())
+        .interact_text()?;
+
+    let host: String = Input::new()
+        .with_prompt("Host")
+        .default(session.host.clone())
+        .interact_text()?;
+
+    let user: String = Input::new()
+        .with_prompt("Username")
+        .default(session.user.clone())
+        .interact_text()?;
+
+    let port: u16 = Input::new()
+        .with_prompt("Port")
+        .default(session.port)
+        .interact_text()?;
+
+    let auth_types = vec![AuthType::Key, AuthType::Password];
+    let auth_type_idx = Select::new()
+        .with_prompt("Authentication type")
+        .items(&auth_types)
+        .default(match session.auth_type {
+            AuthType::Key => 0,
+            AuthType::Password => 1,
+        })
+        .interact()?;
+    let (auth_type, private_key_path, password) = match auth_types[auth_type_idx] {
+        AuthType::Key => {
+            let key_path: String = Input::new()
+                .with_prompt("Private key path")
+                .default(
+                    session
+                        .private_key_path
+                        .clone()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string(),
+                )
+                .interact_text()?;
+            (AuthType::Key, Some(PathBuf::from(key_path)), None)
+        }
+        AuthType::Password => {
+            let new_pass = read_password().context("Failed to read password")?;
+            let password = if new_pass.is_empty() {
+                session.password.clone()
+            } else {
+                Some(new_pass)
+            };
+
+            (AuthType::Password, None, password)
+        }
+    };
+
+    let tags_input: String = Input::new()
+        .with_prompt("Tags (comma or semicolon separated)")
+        .default(
+            session
+                .tags
+                .iter()
+                .cloned()
+                .collect::<Vec<String>>()
+                .join(", "),
+        )
+        .allow_empty(true)
+        .interact_text()?;
+
+    let tags = if tags_input.is_empty() {
+        None
+    } else {
+        Some(parse_tags(Some(&tags_input)))
+    };
+
+    let new_session = Session::new(
+        name,
+        host,
+        user,
+        port,
+        auth_type,
+        private_key_path,
+        password,
+        tags,
+    );
+
+    new_session.validate()?;
+    config.add_session(new_session)?;
     println!("Session added successfully.");
     Ok(())
 }
@@ -590,5 +702,29 @@ fn handle_tag(name: String, action: String, tags: Option<String>) -> Result<()> 
     updated_session.tags = session_tags.into_iter().collect();
     config.update_session(updated_session)?;
 
+    Ok(())
+}
+
+async fn handle_template_list() -> Result<()> {
+    let config = Config::load()?;
+    println!("Available templates:");
+    for template in config.templates.iter() {
+        println!("{}", template.name);
+    }
+
+    Ok(())
+}
+
+async fn handle_template_add(name: String, session: String) -> Result<()> {
+    let mut config = Config::load()?;
+    config.add_template(Template { name, session })?;
+    println!("Template added successfully.");
+    Ok(())
+}
+
+async fn handle_template_delete(name: String) -> Result<()> {
+    let mut config = Config::load()?;
+    config.remove_template(&name)?;
+    println!("Template deleted successfully.");
     Ok(())
 }

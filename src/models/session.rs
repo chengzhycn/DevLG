@@ -22,6 +22,12 @@ pub struct Session {
     pub tags: HashSet<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Template {
+    pub name: String,
+    pub session: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum AuthType {
     #[serde(rename = "key")]
