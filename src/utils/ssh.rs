@@ -42,6 +42,9 @@ pub fn connect_ssh(session: &Session) -> Result<()> {
     // Add user
     cmd.arg("-l").arg(&session.user);
 
+    // Add option StrictHostKeyChecking=accept-new
+    cmd.arg("-o").arg("StrictHostKeyChecking=accept-new");
+
     // Add identity file if using key authentication
     if let crate::models::session::AuthType::Key = session.auth_type {
         if let Some(key_path) = &session.private_key_path {
