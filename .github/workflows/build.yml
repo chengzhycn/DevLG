@@ -17,28 +17,76 @@ jobs:
   build-rust:
     strategy:
       matrix:
-        platform: [ubuntu-latest]
-    runs-on: ${{ matrix.platform }}
+        jobs:
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
+          # FIXME: error adding symbols: file in wrong format / collect2: error: ld returned 1 exit status
+          # - { target: aarch64-unknown-linux-gnu, os: ubuntu-latest }
+          - { target: x86_64-apple-darwin, os: macos-latest }
+          - { target: aarch64-apple-darwin, os: macos-latest }
+    runs-on: ${{ matrix.jobs.os }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Install Rust
-        run: rustup toolchain install stable --component llvm-tools-preview
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Install prerequisites
+        shell: bash
+        run: |
+          case ${{ matrix.jobs.target }} in
+            aarch64-unknown-linux-gnu) sudo apt-get -y update ; sudo apt-get -y install gcc-aarch64-linux-gnu ;;
+            esac
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.jobs.target }}
+
       - name: install nextest
         uses: taiki-e/install-action@nextest
-      - uses: Swatinem/rust-cache@v2
+
       - name: Check code format
         run: cargo fmt -- --check
+
       - name: Check the package for errors
         run: cargo check --all
+
       - name: Lint rust sources
         run: cargo clippy --all-targets --all-features --tests --benches -- -D warnings
+
       - name: Execute rust tests
         run: cargo nextest run --all-features
+
+      - name: Build the binary
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: cargo build --release --locked --target=${{ matrix.jobs.target }}
+
+      - name: Compress the binary
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          pushd target/${{ matrix.jobs.target }}/release > /dev/null
+          tar -czvf devlg.${{ matrix.jobs.target }}.tar.gz devlg
+          popd > /dev/null
+
+      - name: Upload the artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: devlg.${{ matrix.jobs.target }}.tar.gz
+          path: target/${{ matrix.jobs.target }}/release/devlg.${{ matrix.jobs.target }}.tar.gz
+
+  release-artifact:
+    needs: build-rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - run: ls -R artifacts
+
       - name: Generate a changelog
         uses: orhun/git-cliff-action@v2
         id: git-cliff
@@ -48,8 +96,10 @@ jobs:
           args: -vv --latest --strip header
         env:
           OUTPUT: CHANGES.md
+
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           body: ${{ steps.git-cliff.outputs.content }}
+          files: artifacts/*
