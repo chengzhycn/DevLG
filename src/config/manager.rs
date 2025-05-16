@@ -69,6 +69,14 @@ impl Config {
         self.sessions.iter().find(|s| s.name == name)
     }
 
+    pub fn search_sessions(&self, query: &str, tags: &str) -> Vec<&Session> {
+        self.sessions
+            .iter()
+            .filter(|s| s.name.contains(query) || s.host.contains(query))
+            .filter(|s| tags.is_empty() || s.tags.contains(tags))
+            .collect()
+    }
+
     pub fn update_session(&mut self, session: Session) -> Result<()> {
         if let Some(idx) = self.sessions.iter().position(|s| s.name == session.name) {
             self.sessions[idx] = session;

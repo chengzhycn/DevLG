@@ -600,10 +600,42 @@ async fn handle_login(name: Option<String>, tags: Option<String>) -> Result<()> 
     let config = Config::load()?;
 
     let session = match name {
-        Some(name) => config
-            .get_session(&name)
-            .context("Session not found")?
-            .clone(),
+        Some(name) => {
+            let sessions = config.search_sessions(&name, &tags.unwrap_or_default());
+            if sessions.is_empty() {
+                anyhow::bail!("No SSH sessions found matching the specified name")
+            }
+            if sessions.len() == 1 {
+                println!(
+                    "Found session {} matching the specified name",
+                    sessions[0].name
+                );
+                sessions[0].clone()
+            } else {
+                let session_names: Vec<String> = sessions
+                    .iter()
+                    .map(|s| {
+                        let tags_str = if s.tags.is_empty() {
+                            "".to_string()
+                        } else {
+                            format!(
+                                " [{}]",
+                                s.tags.iter().cloned().collect::<Vec<String>>().join(", ")
+                            )
+                        };
+                        format!("{} ({}@{}:{}){}", s.name, s.user, s.host, s.port, tags_str)
+                    })
+                    .collect();
+
+                let selection = Select::new()
+                    .with_prompt("Select a session")
+                    .items(&session_names)
+                    .default(0)
+                    .interact()?;
+
+                sessions[selection].clone()
+            }
+        }
         None => {
             if config.sessions.is_empty() {
                 anyhow::bail!("No SSH sessions found");
