@@ -2,7 +2,7 @@ use crate::commands::Commands;
 use crate::config::manager::ConfigManager;
 use crate::models::session::{AuthType, Session, Template};
 use crate::utils::ssh;
-use anyhow::{Context, Result};
+use anyhow::{Context, Ok, Result};
 use dialoguer::{Input, Select};
 use rpassword::read_password;
 use std::collections::HashSet;
@@ -161,7 +161,15 @@ pub async fn handle_command(command: Commands) -> Result<()> {
                 handle_add_with_template(template.unwrap()).await
             }
         }
-        Commands::Delete { names } => handle_delete(names),
+        Commands::Delete { names, tag } => {
+            match tag {
+                Some(tag) => {
+                    // TODO: validate tag format
+                    handle_delete_with_tags(tag).await
+                }
+                None => handle_delete(names).await,
+            }
+        }
         Commands::Modify {
             name,
             host,
@@ -485,7 +493,7 @@ async fn handle_add_with_template(name: String) -> Result<()> {
     Ok(())
 }
 
-fn handle_delete(names: Vec<String>) -> Result<()> {
+async fn handle_delete(names: Vec<String>) -> Result<()> {
     let mut manager = ConfigManager::new(None);
     manager.load()?;
 
@@ -493,6 +501,32 @@ fn handle_delete(names: Vec<String>) -> Result<()> {
         manager.config.remove_session(&name)?;
         println!("Session '{}' deleted successfully.", name);
     }
+    manager.save()?;
+
+    Ok(())
+}
+
+async fn handle_delete_with_tags(tags: String) -> Result<()> {
+    let mut manager = ConfigManager::new(None);
+    manager.load()?;
+
+    let sessions: Vec<Session> = manager
+        .config
+        .sessions
+        .iter()
+        .filter(|session| {
+            let session_tags: HashSet<String> = session.tags.iter().cloned().collect();
+            if session_tags.contains(&tags) {
+                println!("Session '{}' deleted successfully.", session.name);
+                false
+            } else {
+                true
+            }
+        })
+        .cloned()
+        .collect();
+
+    manager.config.sessions = sessions;
     manager.save()?;
 
     Ok(())
