@@ -1,5 +1,5 @@
 use crate::commands::Commands;
-use crate::config::manager::Config;
+use crate::config::manager::ConfigManager;
 use crate::models::session::{AuthType, Session, Template};
 use crate::utils::ssh;
 use anyhow::{Context, Result};
@@ -161,7 +161,7 @@ pub async fn handle_command(command: Commands) -> Result<()> {
                 handle_add_with_template(template.unwrap()).await
             }
         }
-        Commands::Delete { name } => handle_delete(name),
+        Commands::Delete { names } => handle_delete(names),
         Commands::Modify {
             name,
             host,
@@ -193,7 +193,10 @@ pub async fn handle_command(command: Commands) -> Result<()> {
 }
 
 fn handle_list(detailed: bool, tags_filter: Option<String>) -> Result<()> {
-    let config = Config::load(None)?;
+    let mut manager = ConfigManager::new(None);
+    manager.load()?;
+
+    let config = manager.config;
     if config.sessions.is_empty() {
         println!("No SSH sessions found.");
         return Ok(());
@@ -289,7 +292,8 @@ fn handle_list(detailed: bool, tags_filter: Option<String>) -> Result<()> {
 }
 
 async fn handle_add(addition: SessionAddition) -> Result<()> {
-    let mut config = Config::load(None)?;
+    let mut manager = ConfigManager::new(None);
+    manager.load()?;
 
     let session = if addition.name.is_some() && addition.host.is_some() && addition.user.is_some() {
         // Command line mode
@@ -367,15 +371,23 @@ async fn handle_add(addition: SessionAddition) -> Result<()> {
     };
 
     session.validate()?;
-    config.add_session(session)?;
+    manager.config.add_session(session)?;
+    manager.save()?;
     println!("Session added successfully.");
     Ok(())
 }
 
 async fn handle_add_with_template(name: String) -> Result<()> {
-    let mut config = Config::load(None)?;
-    let template = config.get_template(&name).context("Template not found")?;
-    let session = config
+    let mut manager = ConfigManager::new(None);
+    manager.load()?;
+
+    let template = manager
+        .config
+        .get_template(&name)
+        .context("Template not found")?;
+
+    let session = manager
+        .config
         .get_session(&template.session)
         .context("Session not found")?;
 
@@ -467,21 +479,31 @@ async fn handle_add_with_template(name: String) -> Result<()> {
     );
 
     new_session.validate()?;
-    config.add_session(new_session)?;
+    manager.config.add_session(new_session)?;
+    manager.save()?;
     println!("Session added successfully.");
     Ok(())
 }
 
-fn handle_delete(name: String) -> Result<()> {
-    let mut config = Config::load(None)?;
-    config.remove_session(&name)?;
-    println!("Session '{}' deleted successfully.", name);
+fn handle_delete(names: Vec<String>) -> Result<()> {
+    let mut manager = ConfigManager::new(None);
+    manager.load()?;
+
+    for name in names {
+        manager.config.remove_session(&name)?;
+        println!("Session '{}' deleted successfully.", name);
+    }
+    manager.save()?;
+
     Ok(())
 }
 
 async fn handle_modify(name: String, modification: SessionModification) -> Result<()> {
-    let mut config = Config::load(None)?;
-    let session = config
+    let mut manager = ConfigManager::new(None);
+    manager.load()?;
+
+    let session = manager
+        .config
         .get_session(&name)
         .context("Session not found")?
         .clone();
@@ -591,13 +613,16 @@ async fn handle_modify(name: String, modification: SessionModification) -> Resul
     };
 
     new_session.validate()?;
-    config.update_session(new_session)?;
+    manager.config.update_session(new_session)?;
+    manager.save()?;
     println!("Session '{}' modified successfully.", name);
     Ok(())
 }
 
 async fn handle_login(name: Option<String>, tags: Option<String>) -> Result<()> {
-    let config = Config::load(None)?;
+    let mut manager = ConfigManager::new(None);
+    manager.load()?;
+    let config = manager.config;
 
     let session = match name {
         Some(name) => {
@@ -691,8 +716,11 @@ async fn handle_login(name: Option<String>, tags: Option<String>) -> Result<()> 
 }
 
 fn handle_tag(name: String, action: String, tags: Option<String>) -> Result<()> {
-    let mut config = Config::load(None)?;
-    let session = config
+    let mut manager = ConfigManager::new(None);
+    manager.load()?;
+
+    let session = manager
+        .config
         .get_session(&name)
         .context("Session not found")?
         .clone();
@@ -732,15 +760,18 @@ fn handle_tag(name: String, action: String, tags: Option<String>) -> Result<()> 
 
     let mut updated_session = session;
     updated_session.tags = session_tags.into_iter().collect();
-    config.update_session(updated_session)?;
+    manager.config.update_session(updated_session)?;
+    manager.save()?;
 
     Ok(())
 }
 
 async fn handle_template_list() -> Result<()> {
-    let config = Config::load(None)?;
+    let mut manager = ConfigManager::new(None);
+    manager.load()?;
+
     println!("Available templates:");
-    for template in config.templates.iter() {
+    for template in manager.config.templates.iter() {
         println!("{}", template.name);
     }
 
@@ -748,15 +779,20 @@ async fn handle_template_list() -> Result<()> {
 }
 
 async fn handle_template_add(name: String, session: String) -> Result<()> {
-    let mut config = Config::load(None)?;
-    config.add_template(Template { name, session })?;
+    let mut manager = ConfigManager::new(None);
+    manager.load()?;
+
+    manager.config.add_template(Template { name, session })?;
+    manager.save()?;
     println!("Template added successfully.");
     Ok(())
 }
 
 async fn handle_template_delete(name: String) -> Result<()> {
-    let mut config = Config::load(None)?;
-    config.remove_template(&name)?;
+    let mut manager = ConfigManager::new(None);
+    manager.load()?;
+    manager.config.remove_template(&name)?;
+    manager.save()?;
     println!("Template deleted successfully.");
     Ok(())
 }
