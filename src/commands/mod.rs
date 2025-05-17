@@ -66,6 +66,10 @@ pub enum Commands {
     Delete {
         /// Session names to delete
         names: Vec<String>,
+
+        /// Delete sessions by tag, if provided, names will be ignored
+        #[arg(short, long)]
+        tag: Option<String>,
     },
 
     /// Modify an existing SSH session
