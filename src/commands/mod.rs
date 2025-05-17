@@ -12,6 +12,9 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Show the current version
+    Version,
+
     /// List all SSH sessions
     List {
         /// Show detailed information about each session

@@ -134,6 +134,7 @@ impl SessionAddition {
 
 pub async fn handle_command(command: Commands) -> Result<()> {
     match command {
+        Commands::Version => handle_version(),
         Commands::List { detailed, tags } => handle_list(detailed, tags),
         Commands::Add {
             name,
@@ -198,6 +199,11 @@ pub async fn handle_command(command: Commands) -> Result<()> {
             TemplateAction::Delete { name } => handle_template_delete(name).await,
         },
     }
+}
+
+fn handle_version() -> Result<()> {
+    println!("devlg version {}", env!("CARGO_PKG_VERSION"));
+    Ok(())
 }
 
 fn handle_list(detailed: bool, tags_filter: Option<String>) -> Result<()> {
