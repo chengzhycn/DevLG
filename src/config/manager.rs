@@ -4,40 +4,42 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+pub struct ConfigManager {
+    config_path: PathBuf,
+    pub config: Config,
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Config {
-    config_path: PathBuf,
     pub sessions: Vec<Session>,
     pub templates: Vec<Template>,
 }
 
-impl Config {
-    pub fn new(config_path: PathBuf) -> Self {
-        Config {
-            config_path,
-            sessions: Vec::new(),
-            templates: Vec::new(),
+impl ConfigManager {
+    pub fn new(config_path: Option<PathBuf>) -> Self {
+        let path = if let Some(p) = config_path {
+            p
+        } else {
+            Self::get_default_path().unwrap()
+        };
+
+        ConfigManager {
+            config_path: path,
+            config: Config::default(),
         }
     }
 
-    pub fn load(path: Option<PathBuf>) -> Result<Self> {
-        let config_path = if let Some(p) = path {
-            p
-        } else {
-            Self::get_default_path()?
-        };
-
-        if !config_path.exists() {
-            return Ok(Config::new(config_path));
+    pub fn load(&mut self) -> Result<()> {
+        if !self.config_path.exists() {
+            return Ok(());
         }
 
-        let content = fs::read_to_string(&config_path)
-            .with_context(|| format!("Failed to read config file at {:?}", config_path))?;
+        let content = fs::read_to_string(&self.config_path)
+            .with_context(|| format!("Failed to read config file at {:?}", self.config_path))?;
 
-        let config: Config =
-            toml::from_str(&content).with_context(|| "Failed to parse config file")?;
+        self.config = toml::from_str(&content).with_context(|| "Failed to parse config file")?;
 
-        Ok(config)
+        Ok(())
     }
 
     pub fn save(&self) -> Result<()> {
@@ -47,7 +49,8 @@ impl Config {
                 .with_context(|| format!("Failed to create config directory at {:?}", parent))?;
         }
 
-        let content = toml::to_string_pretty(self).with_context(|| "Failed to serialize config")?;
+        let content =
+            toml::to_string_pretty(&self.config).with_context(|| "Failed to serialize config")?;
 
         fs::write(&config_path, content)
             .with_context(|| format!("Failed to write config file at {:?}", config_path))?;
@@ -55,12 +58,23 @@ impl Config {
         Ok(())
     }
 
+    fn get_config_path(&self) -> Result<PathBuf> {
+        Ok(self.config_path.clone())
+    }
+
+    fn get_default_path() -> Result<PathBuf> {
+        let home = dirs::home_dir().context("Failed to get home directory")?;
+        Ok(home.join(".config").join("devlg.toml"))
+    }
+}
+
+impl Config {
     pub fn add_session(&mut self, session: Session) -> Result<()> {
         if self.sessions.iter().any(|s| s.name == session.name) {
             anyhow::bail!("Session with name '{}' already exists", session.name);
         }
         self.sessions.push(session);
-        self.save()
+        Ok(())
     }
 
     pub fn remove_session(&mut self, name: &str) -> Result<()> {
@@ -69,7 +83,7 @@ impl Config {
         if self.sessions.len() == initial_len {
             anyhow::bail!("Session '{}' not found", name);
         }
-        self.save()
+        Ok(())
     }
 
     pub fn get_session(&self, name: &str) -> Option<&Session> {
@@ -87,7 +101,7 @@ impl Config {
     pub fn update_session(&mut self, session: Session) -> Result<()> {
         if let Some(idx) = self.sessions.iter().position(|s| s.name == session.name) {
             self.sessions[idx] = session;
-            self.save()
+            Ok(())
         } else {
             anyhow::bail!("Session '{}' not found", session.name)
         }
@@ -103,7 +117,7 @@ impl Config {
         }
 
         self.templates.push(template);
-        self.save()
+        Ok(())
     }
 
     pub fn remove_template(&mut self, name: &str) -> Result<()> {
@@ -112,7 +126,7 @@ impl Config {
         if self.templates.len() == initial_len {
             anyhow::bail!("Template '{}' not found", name);
         }
-        self.save()
+        Ok(())
     }
 
     #[allow(dead_code)]
@@ -123,15 +137,6 @@ impl Config {
     #[allow(dead_code)]
     pub fn list_templates(&self) -> &[Template] {
         &self.templates
-    }
-
-    fn get_config_path(&self) -> Result<PathBuf> {
-        Ok(self.config_path.clone())
-    }
-
-    fn get_default_path() -> Result<PathBuf> {
-        let home = dirs::home_dir().context("Failed to get home directory")?;
-        Ok(home.join(".config").join("devlg.toml"))
     }
 }
 
@@ -148,8 +153,9 @@ mod tests {
         let config_path = temp_dir.path().join("devlg.toml");
 
         // Test new config
-        let mut config = Config::new(config_path.clone());
-        assert!(config.sessions.is_empty());
+        let mut manager = ConfigManager::new(Some(config_path.clone()));
+        manager.load()?;
+        assert!(manager.config.sessions.is_empty());
 
         // Test adding session
         let session = Session::new(
@@ -162,18 +168,18 @@ mod tests {
             None,
             Some(HashSet::from(["production".to_string(), "web".to_string()])),
         );
-        config.add_session(session.clone())?;
-        assert_eq!(config.sessions.len(), 1);
+        manager.config.add_session(session.clone())?;
+        assert_eq!(manager.config.sessions.len(), 1);
 
         // Test saving config
-        std::fs::write(&config_path, toml::to_string(&config)?)?;
+        manager.save()?;
 
         // Test loading config
         let loaded_config: Config = toml::from_str(&std::fs::read_to_string(&config_path)?)?;
         assert_eq!(loaded_config.sessions.len(), 1);
 
         // Test getting session
-        let found_session = config.get_session("test").unwrap();
+        let found_session = manager.config.get_session("test").unwrap();
         assert_eq!(found_session.name, "test");
         assert_eq!(
             found_session.tags,
@@ -181,8 +187,8 @@ mod tests {
         );
 
         // Test removing session
-        config.remove_session("test")?;
-        assert!(config.sessions.is_empty());
+        manager.config.remove_session("test")?;
+        assert!(manager.config.sessions.is_empty());
 
         Ok(())
     }

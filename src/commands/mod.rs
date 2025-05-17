@@ -64,8 +64,8 @@ pub enum Commands {
 
     /// Delete an SSH session
     Delete {
-        /// Session name to delete
-        name: String,
+        /// Session names to delete
+        names: Vec<String>,
     },
 
     /// Modify an existing SSH session
