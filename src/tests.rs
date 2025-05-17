@@ -12,7 +12,7 @@ mod session_tests {
         let config_path = temp_dir.path().join("devlg.toml");
 
         // Create a new config
-        let mut config = Config::new();
+        let mut config = Config::new(config_path.clone());
         assert!(config.sessions.is_empty());
 
         // Add a session

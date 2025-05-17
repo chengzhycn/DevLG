@@ -6,22 +6,29 @@ use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Config {
+    config_path: PathBuf,
     pub sessions: Vec<Session>,
     pub templates: Vec<Template>,
 }
 
 impl Config {
-    pub fn new() -> Self {
+    pub fn new(config_path: PathBuf) -> Self {
         Config {
+            config_path,
             sessions: Vec::new(),
             templates: Vec::new(),
         }
     }
 
-    pub fn load() -> Result<Self> {
-        let config_path = Self::get_config_path()?;
+    pub fn load(path: Option<PathBuf>) -> Result<Self> {
+        let config_path = if let Some(p) = path {
+            p
+        } else {
+            Self::get_default_path()?
+        };
+
         if !config_path.exists() {
-            return Ok(Config::new());
+            return Ok(Config::new(config_path));
         }
 
         let content = fs::read_to_string(&config_path)
@@ -34,7 +41,7 @@ impl Config {
     }
 
     pub fn save(&self) -> Result<()> {
-        let config_path = Self::get_config_path()?;
+        let config_path = self.get_config_path()?;
         if let Some(parent) = config_path.parent() {
             fs::create_dir_all(parent)
                 .with_context(|| format!("Failed to create config directory at {:?}", parent))?;
@@ -118,7 +125,11 @@ impl Config {
         &self.templates
     }
 
-    fn get_config_path() -> Result<PathBuf> {
+    fn get_config_path(&self) -> Result<PathBuf> {
+        Ok(self.config_path.clone())
+    }
+
+    fn get_default_path() -> Result<PathBuf> {
         let home = dirs::home_dir().context("Failed to get home directory")?;
         Ok(home.join(".config").join("devlg.toml"))
     }
@@ -137,7 +148,7 @@ mod tests {
         let config_path = temp_dir.path().join("devlg.toml");
 
         // Test new config
-        let mut config = Config::new();
+        let mut config = Config::new(config_path.clone());
         assert!(config.sessions.is_empty());
 
         // Test adding session
