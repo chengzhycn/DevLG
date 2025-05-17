@@ -21,9 +21,17 @@ DevLG is a command-line SSH session manager written in Rust. It helps you manage
 
 ## Installation
 
+You can install DevLG using the following one-line command:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/chengzhycn/devlg/main/install.sh)"
+```
+
+Or manually:
+
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/devlg.git
+git clone https://github.com/chengzhycn/devlg.git
 cd devlg
 
 # Build and install
