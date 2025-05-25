@@ -1,7 +1,7 @@
 use crate::commands::Commands;
 use crate::config::manager::ConfigManager;
 use crate::models::session::{AuthType, Session, Template};
-use crate::utils::ssh;
+use crate::utils::{scp, ssh};
 use anyhow::{Context, Ok, Result};
 use dialoguer::{Input, Select};
 use rpassword::read_password;
@@ -198,6 +198,7 @@ pub async fn handle_command(command: Commands) -> Result<()> {
             TemplateAction::Create { session, name } => handle_template_add(name, session).await,
             TemplateAction::Delete { name } => handle_template_delete(name).await,
         },
+        Commands::Cp { src, dst } => handle_cp(src, dst).await,
     }
 }
 
@@ -835,4 +836,31 @@ async fn handle_template_delete(name: String) -> Result<()> {
     manager.save()?;
     println!("Template deleted successfully.");
     Ok(())
+}
+
+async fn handle_cp(src: String, dst: String) -> Result<()> {
+    let mut manager = ConfigManager::new(None);
+    manager.load()?;
+
+    let (src_session_name, src_path) = parse_path(src);
+    let (dst_session_name, dst_path) = parse_path(dst);
+
+    let src_session = src_session_name
+        .as_ref()
+        .and_then(|name| manager.config.get_session(name));
+
+    let dst_session = dst_session_name
+        .as_ref()
+        .and_then(|name| manager.config.get_session(name));
+
+    scp::copy_file(src_session, dst_session, &src_path, &dst_path)
+}
+
+fn parse_path(path: String) -> (Option<String>, PathBuf) {
+    match path.split_once(":") {
+        Some((session_name, file_path)) => {
+            (Some(session_name.to_string()), PathBuf::from(file_path))
+        }
+        None => (None, PathBuf::from(path)),
+    }
 }
