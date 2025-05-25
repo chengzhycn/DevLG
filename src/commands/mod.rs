@@ -138,6 +138,15 @@ pub enum Commands {
         #[command(subcommand)]
         action: TemplateAction,
     },
+
+    /// Copy files between SSH sessions and local.
+    Cp {
+        /// Source file or directory. Can use [local_path] or [session_name]:[remote_path]
+        src: String,
+
+        /// Destination file or directory. Can use [local_path] or [session_name]:[remote_path]
+        dst: String,
+    },
 }
 
 #[derive(Subcommand)]
