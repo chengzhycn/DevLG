@@ -1,6 +1,6 @@
 [package]
 name = "devlg"
-version = "0.1.1"
+version = "0.1.3"
 edition = "2024"
 authors = ["chengzhycn <chengzhycn@gmail.com>"]
 description = "A command-line SSH session manager"
