@@ -30,7 +30,7 @@ case $OS in
     OS="apple-darwin"
     ;;
 "linux")
-    OS="linux-gnu"
+    OS="unknown-linux-gnu"
     ;;
 *)
     echo "Unsupported operating system: $OS"
