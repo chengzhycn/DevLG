@@ -19,6 +19,7 @@ jobs:
       matrix:
         jobs:
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest }
           # FIXME: error adding symbols: file in wrong format / collect2: error: ld returned 1 exit status
           # - { target: aarch64-unknown-linux-gnu, os: ubuntu-latest }
           - { target: x86_64-apple-darwin, os: macos-latest }
@@ -35,8 +36,8 @@ jobs:
         shell: bash
         run: |
           case ${{ matrix.jobs.target }} in
-            aarch64-unknown-linux-gnu) sudo apt-get -y update ; sudo apt-get -y install gcc-aarch64-linux-gnu ;;
-            esac
+            x86_64-unknown-linux-musl) sudo apt-get -y update ; sudo apt-get -y install lld ;;
+          esac
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -61,7 +62,11 @@ jobs:
       - name: Build the binary
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
-        run: cargo build --release --locked --target=${{ matrix.jobs.target }}
+        run: |
+          case ${{ matrix.jobs.target }} in
+            x86_64-unknown-linux-musl) rustup target add x86_64-unknown-linux-musl ;;
+          esac
+          cargo build --release --locked --target=${{ matrix.jobs.target }}
 
       - name: Compress the binary
         if: startsWith(github.ref, 'refs/tags/')
