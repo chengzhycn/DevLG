@@ -1,19 +1,29 @@
-use crate::models::session::Session;
+use crate::{
+    models::session::Session,
+    utils::ssh::{master_ssh_close, master_ssh_create},
+};
 use anyhow::{Context, Result};
 use std::{path::Path, process::Command};
 
 pub fn copy_file(
     src_session: Option<&Session>,
     dst_session: Option<&Session>,
-    src_path: &Path,
+    src_path: Vec<&Path>,
     dst_path: &Path,
+    recursive: bool,
 ) -> Result<()> {
     let mut s_bits = 0;
-    let src_uri = if let Some(session) = src_session {
+    let src_uri: Vec<String> = if let Some(session) = src_session {
         s_bits |= 1;
-        generate_scp_uri(session, src_path)
+        src_path
+            .iter()
+            .map(|p| generate_scp_uri(session, p))
+            .collect()
     } else {
-        src_path.to_string_lossy().to_string()
+        src_path
+            .iter()
+            .map(|p| p.to_string_lossy().to_string())
+            .collect()
     };
 
     let dst_uri = if let Some(session) = dst_session {
@@ -37,31 +47,34 @@ pub fn copy_file(
         dst_session.unwrap()
     };
 
-    let mut cmd = match sess.auth_type {
-        crate::models::session::AuthType::Password => {
-            let mut cmd = Command::new("sshpass");
-            cmd.arg("-p")
-                .arg(sess.password.as_ref().context("Password not found")?);
-            cmd.arg("scp");
-            cmd
-        }
-        crate::models::session::AuthType::Key => {
-            let mut cmd = Command::new("scp");
-            cmd.arg("-i").arg(
-                sess.private_key_path
-                    .as_ref()
-                    .context("Private key not found")?,
-            );
-            cmd
-        }
-    };
+    // first create a master ssh connection
+    let control_path = master_ssh_create(sess).context("Failed to create master SSH connection")?;
 
-    cmd.arg(src_uri).arg(dst_uri);
+    let mut cmd = Command::new("scp");
+    cmd.arg("-o")
+        .arg(format!("ControlPath={}", control_path.display()));
+
+    if recursive {
+        cmd.arg("-r");
+    }
+
+    for src in src_uri.clone() {
+        cmd.arg(src);
+    }
+    cmd.arg(dst_uri.clone());
 
     let status = cmd.status().context("Failed to execute SCP command")?;
     if !status.success() {
         anyhow::bail!("SCP command failed with exit code: {}", status);
     }
+
+    master_ssh_close(sess).context("Failed to close master SSH connection")?;
+
+    println!(
+        "copy file from {} to {} success.",
+        src_uri.join(" "),
+        dst_uri
+    );
 
     Ok(())
 }

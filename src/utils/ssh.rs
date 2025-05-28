@@ -1,6 +1,6 @@
 use crate::models::session::Session;
-use anyhow::{Context, Result};
-use std::process::Command;
+use anyhow::{Context, Ok, Result};
+use std::{path::PathBuf, process::Command};
 
 /// Establishes an SSH connection to the remote server using the system's SSH client.
 ///
@@ -56,6 +56,97 @@ pub fn connect_ssh(session: &Session) -> Result<()> {
     cmd.arg(&session.host);
 
     // Execute the SSH command
+    let status = cmd.status().context("Failed to execute SSH command")?;
+
+    if !status.success() {
+        anyhow::bail!("SSH connection failed with exit code: {}", status);
+    }
+
+    Ok(())
+}
+
+/// Create a master SSH connection to the remote server.
+/// ssh parameters:
+/// -M: master mode
+/// -f: run in background
+/// -N: do not execute a remote command
+/// -o StrictHostKeyChecking=accept-new: accept new host keys
+/// -o ExitOnForwardFailure=yes: exit if forwarding fails
+/// -o ControlPath=~/.ssh/<session_name>
+pub fn master_ssh_create(session: &Session) -> Result<PathBuf> {
+    let mut cmd = match session.auth_type {
+        crate::models::session::AuthType::Password => {
+            // Use sshpass for password authentication
+            let mut cmd = Command::new("sshpass");
+            cmd.arg("-p")
+                .arg(session.password.as_ref().context("Password not found")?);
+            cmd.arg("ssh");
+            cmd
+        }
+        crate::models::session::AuthType::Key => {
+            // Use regular ssh for key authentication
+            Command::new("ssh")
+        }
+    };
+
+    cmd.arg("-M")
+        .arg("-fN")
+        .arg("-o")
+        .arg("StrictHostKeyChecking=accept-new")
+        .arg("-o")
+        .arg("ExitOnForwardFailure=yes")
+        .arg("-o")
+        .arg(format!("ControlPath=~/.ssh/{}", session.name));
+
+    // Add port
+    cmd.arg("-p").arg(session.port.to_string());
+
+    // Add user
+    cmd.arg("-l").arg(&session.user);
+
+    // Add identity file if using key authentication
+    if let crate::models::session::AuthType::Key = session.auth_type {
+        if let Some(key_path) = &session.private_key_path {
+            cmd.arg("-i").arg(key_path);
+        }
+    }
+
+    // Add host
+    cmd.arg(&session.host);
+
+    // Execute the SSH command
+    let status = cmd.status().context("Failed to execute SSH command")?;
+
+    if !status.success() {
+        anyhow::bail!("SSH connection failed with exit code: {}", status);
+    }
+
+    Ok(PathBuf::from(format!("~/.ssh/{}", session.name)))
+}
+
+/// Close the master SSH connection to the remote server.
+/// ssh parameters:
+/// -O: exit
+/// -S: control path
+pub fn master_ssh_close(session: &Session) -> Result<()> {
+    let control_path = PathBuf::from(format!("~/.ssh/{}", session.name));
+    // FIXME: PathBuf.exists() is not working for the socket file, why?
+    // if !control_path.exists() {
+    //     println!("Control path does not exist: {}", control_path.display());
+    //     return Ok(());
+    // }
+
+    let mut cmd = Command::new("ssh");
+    cmd.arg("-S")
+        .arg(control_path.to_string_lossy().to_string())
+        .arg("-O")
+        .arg("exit")
+        .arg(format!(
+            "{}@{}:{}",
+            session.user, session.host, session.port
+        ));
+
+    // TODO: redirect stderr to /dev/null
     let status = cmd.status().context("Failed to execute SSH command")?;
 
     if !status.success() {

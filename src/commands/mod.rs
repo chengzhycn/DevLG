@@ -141,11 +141,21 @@ pub enum Commands {
 
     /// Copy files between SSH sessions and local.
     Cp {
-        /// Source file or directory. Can use [local_path] or [session_name]:[remote_path]
-        src: String,
+        /// Source/destination file or directory. Can use [local_path] or [session_name]:[remote_path]
+        /// The last path is the destination, the rest are sources.
+        paths: Vec<PathBuf>,
 
-        /// Destination file or directory. Can use [local_path] or [session_name]:[remote_path]
-        dst: String,
+        /// copy files from the remote source to the local destination
+        #[arg(short, long, conflicts_with = "dst")]
+        src: Option<String>,
+
+        /// copy files from the local source to the remote destination
+        #[arg(short, long, conflicts_with = "src")]
+        dst: Option<String>,
+
+        /// Recursively copy directories
+        #[arg(short, long)]
+        recursive: bool,
     },
 }
 
