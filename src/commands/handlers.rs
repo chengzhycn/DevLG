@@ -198,7 +198,11 @@ pub async fn handle_command(command: Commands) -> Result<()> {
             TemplateAction::Create { session, name } => handle_template_add(name, session).await,
             TemplateAction::Delete { name } => handle_template_delete(name).await,
         },
-        Commands::Cp { src, dst } => handle_cp(src, dst).await,
+        Commands::Cp {
+            src,
+            dst,
+            recursive,
+        } => handle_cp(src, dst, recursive).await,
     }
 }
 
@@ -838,7 +842,7 @@ async fn handle_template_delete(name: String) -> Result<()> {
     Ok(())
 }
 
-async fn handle_cp(src: String, dst: String) -> Result<()> {
+async fn handle_cp(src: String, dst: String, recursive: bool) -> Result<()> {
     let mut manager = ConfigManager::new(None);
     manager.load()?;
 
@@ -853,7 +857,7 @@ async fn handle_cp(src: String, dst: String) -> Result<()> {
         .as_ref()
         .and_then(|name| manager.config.get_session(name));
 
-    scp::copy_file(src_session, dst_session, &src_path, &dst_path)
+    scp::copy_file(src_session, dst_session, &src_path, &dst_path, recursive)
 }
 
 fn parse_path(path: String) -> (Option<String>, PathBuf) {

@@ -7,6 +7,7 @@ pub fn copy_file(
     dst_session: Option<&Session>,
     src_path: &Path,
     dst_path: &Path,
+    recursive: bool,
 ) -> Result<()> {
     let mut s_bits = 0;
     let src_uri = if let Some(session) = src_session {
@@ -56,12 +57,18 @@ pub fn copy_file(
         }
     };
 
-    cmd.arg(src_uri).arg(dst_uri);
+    if recursive {
+        cmd.arg("-r");
+    }
+
+    cmd.arg(src_uri.clone()).arg(dst_uri.clone());
 
     let status = cmd.status().context("Failed to execute SCP command")?;
     if !status.success() {
         anyhow::bail!("SCP command failed with exit code: {}", status);
     }
+
+    println!("copy file from {} to {} success.", src_uri, dst_uri);
 
     Ok(())
 }

@@ -146,6 +146,10 @@ pub enum Commands {
 
         /// Destination file or directory. Can use [local_path] or [session_name]:[remote_path]
         dst: String,
+
+        /// Recursively copy directories
+        #[arg(short, long)]
+        recursive: bool,
     },
 }
 
