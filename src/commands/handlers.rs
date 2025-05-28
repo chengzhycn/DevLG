@@ -199,10 +199,11 @@ pub async fn handle_command(command: Commands) -> Result<()> {
             TemplateAction::Delete { name } => handle_template_delete(name).await,
         },
         Commands::Cp {
+            paths,
             src,
             dst,
             recursive,
-        } => handle_cp(src, dst, recursive).await,
+        } => handle_cp(paths, src, dst, recursive).await,
     }
 }
 
@@ -842,29 +843,32 @@ async fn handle_template_delete(name: String) -> Result<()> {
     Ok(())
 }
 
-async fn handle_cp(src: String, dst: String, recursive: bool) -> Result<()> {
+async fn handle_cp(
+    paths: Vec<PathBuf>,
+    src: Option<String>,
+    dst: Option<String>,
+    recursive: bool,
+) -> Result<()> {
     let mut manager = ConfigManager::new(None);
     manager.load()?;
 
-    let (src_session_name, src_path) = parse_path(src);
-    let (dst_session_name, dst_path) = parse_path(dst);
-
-    let src_session = src_session_name
+    let src_session = src
         .as_ref()
         .and_then(|name| manager.config.get_session(name));
 
-    let dst_session = dst_session_name
+    let dst_session = dst
         .as_ref()
         .and_then(|name| manager.config.get_session(name));
 
-    scp::copy_file(src_session, dst_session, &src_path, &dst_path, recursive)
-}
-
-fn parse_path(path: String) -> (Option<String>, PathBuf) {
-    match path.split_once(":") {
-        Some((session_name, file_path)) => {
-            (Some(session_name.to_string()), PathBuf::from(file_path))
-        }
-        None => (None, PathBuf::from(path)),
+    if paths.len() < 2 {
+        anyhow::bail!("At least two paths are required");
     }
+
+    let src_path = paths[0..paths.len() - 1]
+        .iter()
+        .map(|p| p.as_path())
+        .collect();
+    let dst_path = paths[paths.len() - 1].as_path();
+
+    scp::copy_file(src_session, dst_session, src_path, dst_path, recursive)
 }
