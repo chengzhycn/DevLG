@@ -1,7 +1,15 @@
+use anyhow::Result;
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use std::{collections::HashSet, path::PathBuf};
 
-pub mod handlers;
+mod cp;
+mod delete;
+mod list;
+mod login;
+mod modify;
+mod tag;
+mod template;
+mod version;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -170,8 +178,8 @@ pub enum TemplateAction {
         name: String,
     },
 
-    /// Create a template from an existing session
-    Create {
+    /// Add a template from an existing session
+    Add {
         /// Template name
         name: String,
 
@@ -179,4 +187,125 @@ pub enum TemplateAction {
         #[arg(short, long)]
         session: String,
     },
+}
+
+#[derive(Default)]
+struct SessionParams {
+    name: Option<String>,
+    host: Option<String>,
+    user: Option<String>,
+    port: Option<u16>,
+    auth_type: Option<String>,
+    key_path: Option<PathBuf>,
+    password: Option<String>,
+    tags: Option<String>,
+}
+
+impl SessionParams {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        name: Option<String>,
+        host: Option<String>,
+        user: Option<String>,
+        port: Option<u16>,
+        auth_type: Option<String>,
+        key_path: Option<PathBuf>,
+        password: Option<String>,
+        tags: Option<String>,
+    ) -> Self {
+        Self {
+            name,
+            host,
+            user,
+            port,
+            auth_type,
+            key_path,
+            password,
+            tags,
+        }
+    }
+}
+
+pub async fn handle_command(command: Commands) -> Result<()> {
+    match command {
+        Commands::Version => version::handle_version(),
+        Commands::List { detailed, tags } => list::handle_list(detailed, tags),
+        Commands::Add {
+            name,
+            host,
+            user,
+            port,
+            auth_type,
+            key_path,
+            password,
+            tags,
+            template,
+        } => {
+            if template.is_none() {
+                let params =
+                    SessionParams::new(name, host, user, port, auth_type, key_path, password, tags);
+                modify::handle_add(params).await
+            } else {
+                modify::handle_add_with_template(template.unwrap()).await
+            }
+        }
+        Commands::Modify {
+            name,
+            host,
+            user,
+            port,
+            auth_type,
+            key_path,
+            password,
+            tags,
+        } => {
+            let params = SessionParams::new(
+                Some(name),
+                host,
+                user,
+                port,
+                auth_type,
+                key_path,
+                password,
+                tags,
+            );
+            modify::handle_modify(params).await
+        }
+        Commands::Delete { names, tag } => {
+            match tag {
+                Some(tag) => {
+                    // TODO: validate tag format
+                    delete::handle_delete_with_tags(tag).await
+                }
+                None => delete::handle_delete(names).await,
+            }
+        }
+        Commands::Login { name, tags } => login::handle_login(name, tags).await,
+        Commands::Tag { name, action, tags } => tag::handle_tag(name, action, tags),
+        Commands::Template { action } => match action {
+            TemplateAction::List => template::handle_template_list().await,
+            TemplateAction::Add { session, name } => {
+                template::handle_template_add(name, session).await
+            }
+            TemplateAction::Delete { name } => template::handle_template_delete(name).await,
+        },
+        Commands::Cp {
+            paths,
+            src,
+            dst,
+            recursive,
+        } => cp::handle_cp(paths, src, dst, recursive).await,
+    }
+}
+
+// Helper function to parse tags from a string
+fn parse_tags(tags_str: Option<&String>) -> HashSet<String> {
+    tags_str
+        .map(|s| {
+            s.split([',', ';'])
+                .map(|tag| tag.trim().to_string())
+                .filter(|tag| !tag.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
 }

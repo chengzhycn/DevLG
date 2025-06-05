@@ -9,7 +9,8 @@ DevLG is a command-line SSH session manager written in Rust. It helps you manage
 - Support for both password and private key authentication
 - Configuration stored in TOML format
 - Interactive session selection for quick login
-- Secure credential storage
+- Secure credential storage (TODO)
+- DB-based session storages (TODO)
 - Tag-based session organization and filtering
 - Session templates for quick session creation
 
@@ -17,6 +18,7 @@ DevLG is a command-line SSH session manager written in Rust. It helps you manage
 
 - Rust 1.70 or later
 - OpenSSH client
+- sshpass needed
 - A Unix-like operating system (Linux, macOS, etc.)
 
 ## Installation
@@ -27,7 +29,7 @@ You can install DevLG using the following one-line command:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/chengzhycn/devlg/main/install.sh)"
 ```
 
-Or manually:
+Or build manually:
 
 ```bash
 # Clone the repository
@@ -134,13 +136,8 @@ password = "your-password"
 tags = ["staging", "database"]
 
 [[templates]]
-name = "production-template"
-host = "prod.example.com"
-user = "deploy"
-port = 22
-auth_type = "key"
-private_key_path = "~/.ssh/deploy_key"
-tags = ["production"]
+name = "template"
+session = "sess"
 ```
 
 ## Tag Management
@@ -176,60 +173,13 @@ DevLG supports tagging SSH sessions for better organization and filtering:
    devlg list --tags "production,web"
    ```
 
-## Development Roadmap
+## TODO
 
-### Phase 1: Core Functionality
-
-- [x] Project setup and basic structure
-- [x] Configuration file management
-- [x] Session CRUD operations
-- [x] Basic CLI interface
-- [x] Interactive session management
-- [x] Command-line parsing
-- [x] Session selection interface
-
-### Phase 2: Authentication
-
-- [x] Password authentication support
-- [x] Private key authentication support
-- [ ] Secure credential storage (encryption)
-- [ ] SSH connection implementation
-  - [ ] Basic connection using ssh2 crate
-  - [ ] Password authentication
-  - [ ] Private key authentication
-  - [ ] Connection error handling
-  - [ ] Interactive shell support
-
-### Phase 3: User Experience
-
-- [x] Session grouping/categorization with tags
-- [x] Session filtering by tags
-- [ ] Session search functionality
-- [ ] Session import/export
-- [x] Session templates
-- [ ] Command completion
-- [ ] Progress indicators for long operations
-
-### Phase 4: Testing and Documentation
-
-- [x] Basic unit tests
-- [ ] Integration tests
-- [ ] End-to-end tests
-- [ ] Documentation for each module
-- [ ] Usage examples
-- [ ] Troubleshooting guide
-
-### Phase 5: Security Enhancements
-
-- [ ] Password encryption
-- [ ] Secure credential storage
-- [ ] Audit logging
-- [ ] Session timeout
-- [ ] Connection verification
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+- Secure credential storage
+- Using a unified session manager for ssh control sockets
+  - Posix Semaphore or
+  - independent daemon and unix domain socket for client communications
+- Using native ssh2 crates instead of ssh/scp command
 
 ## License
 

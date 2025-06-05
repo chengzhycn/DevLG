@@ -170,6 +170,20 @@ impl Session {
             .expect("Failed to build session")
     }
 
+    pub fn empty_template() -> Self {
+        SessionBuilder::new()
+            .name("".to_string())
+            .host("".to_string())
+            .user("".to_string())
+            .port(22)
+            .auth_type(AuthType::Key)
+            .private_key_path(None)
+            .password(None)
+            .tags(None)
+            .build()
+            .expect("Failed to build empty template")
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.name.is_empty() {
             bail!("Session name cannot be empty");
