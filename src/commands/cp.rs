@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use crate::config::manager::ConfigManager;
 use crate::utils::scp;
 
-pub async fn handle_cp(
+pub fn handle_cp(
     paths: Vec<PathBuf>,
     src: Option<String>,
     dst: Option<String>,

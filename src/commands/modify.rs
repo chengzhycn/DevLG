@@ -7,7 +7,7 @@ use crate::commands::{SessionParams, parse_tags};
 use crate::config::manager::ConfigManager;
 use crate::models::session::{AuthType, Session};
 
-pub async fn handle_add(params: SessionParams) -> Result<()> {
+pub fn handle_add(params: SessionParams) -> Result<()> {
     let mut manager = ConfigManager::new(None);
     manager.load()?;
 
@@ -28,7 +28,7 @@ pub async fn handle_add(params: SessionParams) -> Result<()> {
         )
     } else {
         // Interactive mode
-        new_session_with_default(&Session::empty_template(), true).await?
+        new_session_with_default(&Session::empty_template(), true)?
     };
 
     session.validate()?;
@@ -38,7 +38,7 @@ pub async fn handle_add(params: SessionParams) -> Result<()> {
     Ok(())
 }
 
-pub async fn handle_add_with_template(name: String) -> Result<()> {
+pub fn handle_add_with_template(name: String) -> Result<()> {
     let mut manager = ConfigManager::new(None);
     manager.load()?;
 
@@ -53,7 +53,7 @@ pub async fn handle_add_with_template(name: String) -> Result<()> {
         .context("Session not found")?;
 
     // enter interactive mode
-    let new_session = new_session_with_default(session, true).await?;
+    let new_session = new_session_with_default(session, true)?;
 
     new_session.validate()?;
     manager.config.add_session(new_session)?;
@@ -62,7 +62,7 @@ pub async fn handle_add_with_template(name: String) -> Result<()> {
     Ok(())
 }
 
-async fn new_session_with_default(sess: &Session, create: bool) -> Result<Session> {
+fn new_session_with_default(sess: &Session, create: bool) -> Result<Session> {
     let name = if create {
         Input::new()
             .with_prompt("Session name")
@@ -154,7 +154,7 @@ async fn new_session_with_default(sess: &Session, create: bool) -> Result<Sessio
     Ok(new_session)
 }
 
-pub async fn handle_modify(params: SessionParams) -> Result<()> {
+pub fn handle_modify(params: SessionParams) -> Result<()> {
     let mut manager = ConfigManager::new(None);
     manager.load()?;
 
@@ -192,7 +192,7 @@ pub async fn handle_modify(params: SessionParams) -> Result<()> {
         )
     } else {
         // Interactive mode
-        new_session_with_default(&session, false).await?
+        new_session_with_default(&session, false)?
     };
 
     new_session.validate()?;

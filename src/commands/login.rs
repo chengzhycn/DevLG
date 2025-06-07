@@ -7,7 +7,7 @@ use crate::config::manager::ConfigManager;
 use crate::models::session::Session;
 use crate::utils::ssh;
 
-pub async fn handle_login(name: Option<String>, tags: Option<String>) -> Result<()> {
+pub fn handle_login(name: Option<String>, tags: Option<String>) -> Result<()> {
     let mut manager = ConfigManager::new(None);
     manager.load()?;
     let config = manager.config;

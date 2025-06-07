@@ -226,7 +226,7 @@ impl SessionParams {
     }
 }
 
-pub async fn handle_command(command: Commands) -> Result<()> {
+pub fn handle_command(command: Commands) -> Result<()> {
     match command {
         Commands::Version => version::handle_version(),
         Commands::List { detailed, tags } => list::handle_list(detailed, tags),
@@ -241,12 +241,12 @@ pub async fn handle_command(command: Commands) -> Result<()> {
             tags,
             template,
         } => {
-            if template.is_none() {
+            if let Some(template) = template {
+                modify::handle_add_with_template(template)
+            } else {
                 let params =
                     SessionParams::new(name, host, user, port, auth_type, key_path, password, tags);
-                modify::handle_add(params).await
-            } else {
-                modify::handle_add_with_template(template.unwrap()).await
+                modify::handle_add(params)
             }
         }
         Commands::Modify {
@@ -269,32 +269,30 @@ pub async fn handle_command(command: Commands) -> Result<()> {
                 password,
                 tags,
             );
-            modify::handle_modify(params).await
+            modify::handle_modify(params)
         }
         Commands::Delete { names, tag } => {
             match tag {
                 Some(tag) => {
                     // TODO: validate tag format
-                    delete::handle_delete_with_tags(tag).await
+                    delete::handle_delete_with_tags(tag)
                 }
-                None => delete::handle_delete(names).await,
+                None => delete::handle_delete(names),
             }
         }
-        Commands::Login { name, tags } => login::handle_login(name, tags).await,
+        Commands::Login { name, tags } => login::handle_login(name, tags),
         Commands::Tag { name, action, tags } => tag::handle_tag(name, action, tags),
         Commands::Template { action } => match action {
-            TemplateAction::List => template::handle_template_list().await,
-            TemplateAction::Add { session, name } => {
-                template::handle_template_add(name, session).await
-            }
-            TemplateAction::Delete { name } => template::handle_template_delete(name).await,
+            TemplateAction::List => template::handle_template_list(),
+            TemplateAction::Add { session, name } => template::handle_template_add(name, session),
+            TemplateAction::Delete { name } => template::handle_template_delete(name),
         },
         Commands::Cp {
             paths,
             src,
             dst,
             recursive,
-        } => cp::handle_cp(paths, src, dst, recursive).await,
+        } => cp::handle_cp(paths, src, dst, recursive),
     }
 }
 
