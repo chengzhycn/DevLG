@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use crate::config::manager::ConfigManager;
 use crate::models::session::Session;
 
-pub async fn handle_delete(names: Vec<String>) -> Result<()> {
+pub fn handle_delete(names: Vec<String>) -> Result<()> {
     let mut manager = ConfigManager::new(None);
     manager.load()?;
 
@@ -17,7 +17,7 @@ pub async fn handle_delete(names: Vec<String>) -> Result<()> {
     Ok(())
 }
 
-pub async fn handle_delete_with_tags(tags: String) -> Result<()> {
+pub fn handle_delete_with_tags(tags: String) -> Result<()> {
     let mut manager = ConfigManager::new(None);
     manager.load()?;
 
